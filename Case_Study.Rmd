@@ -1,0 +1,232 @@
+---
+title: "Google Capstone Project"
+subtitle: "Cyclistic bike-share analysis case study! "
+author: "Emmanuel Ncube"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+## INTRODUCTION
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+#### This project is part of requirements in fulfillment of the Google Data Analysis Professional Certificate.
+
+#### The purpose of this script is to consolidate downloaded Divvy data for the year 2021 into a single data frame and then conduct an analysis to help answer the key question: "In what ways do members and casual riders use Divvy bikes differently?"
+
+### Setting up the environment
+
+```{r install the packages}
+
+# install.packages("tidyverse") # for data wrangling
+# install.packages("janitor")   # for data cleaning
+# install.packages("lubridate") # for date manipulation
+# install.packages("vroom")     
+# install.packages("ggplot2")   # for data visualization
+# 
+# getwd() # prints the current working directory
+# setwd("C:/Users/hp/Desktop/Google Capstone") # set the working directly to simplify data reference
+```
+
+### Load packages
+
+```{r libraries}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+```
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+# STEP 1: COLLECT DATA
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+### Lets read the data and make columns consistent
+
+```{r cleaning column names }
+
+# create a list of .csv files
+file_list <- list.files(path = "C:/Users/hp/Desktop/Google Capstone/divvy_raw", 
+             pattern="*.csv", full.names = TRUE)
+df <- lapply(file_list, read.csv) %>% bind_rows()
+glimpse(df)
+```
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+# STEP 2: DATA WRANGLING & TRANSFORMATION
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+### Remove start_lat, start_lng,end_lat and end_lng columns as these columns are irrelevant to the current analysis
+
+```{}
+```
+
+```{r remove irrelevant columns}
+all_trips <- select(df, -c(start_lat,start_lng,end_lat,end_lng))
+```
+
+### Inspect the new table created
+
+```{r inspect columns}
+colnames(all_trips)
+dim(all_trips)
+head(all_trips)
+str(all_trips)
+```
+
+### There are a few issues with the data that needs fixing:
+
+### 1. Some columns of data need to be added e.g.. day, month, year, to allow aggregation of the data.
+
+### 2. Adding of length of ride column to the entire data frame to allow bike usage analysis.
+
+### Let's add columns that list the date, month, day and year of each ride
+
+```{r year,month,day,day of the week}
+
+all_trips$year <- as.Date(all_trips$started_at)
+all_trips$month <- format(as.Date(all_trips$year), "%m")
+all_trips$day <- format(as.Date(all_trips$year), "%d")
+all_trips$day_of_week <- format(as.Date(all_trips$year), "%A")
+head(all_trips)
+```
+
+# Add a "ride_length" calculated field (in seconds)
+
+```{r add ride_length column}
+all_trips$ride_length <- difftime(all_trips$ended_at,all_trips$started_at)
+```
+
+# Lets inspect the structure of the columns
+
+```{r file inspection}
+str(all_trips)
+```
+
+### Let's remove "Bad data" and create a new version of the data frame (v2) e.g. rides with negative ride length
+
+```{r remove negative ride length}
+
+all_trips_v2 <- all_trips[!(all_trips$ride_length<0),]
+```
+
+### Check the data structure again
+
+```{r inspect the file}
+# str(all_trips_v2)
+```
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+# STEP 3: CONDUCT DESCRIPTIVE ANALYSIS
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+## Summary statistics by membership
+
+### Let's order the weekdays to enable grouping by weekday
+
+```{r ordering weekdays}
+all_trips_v2$day_of_week <- ordered(all_trips_v2$day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
+
+### Summary statistics (max, mean of ride length and mode of the weekday)
+
+```{r summary statistics}
+all_trips_v2 %>%
+  group_by(member_casual) %>% 
+  summarise(max_ride_length = max(ride_length),
+            mean_ride_length = mean(ride_length),
+            mode_weekday = which.max(table(day_of_week)))
+```
+
+### Average ride_length by membership and weekday
+
+```{r avg ride duration by membership and weekday}
+all_trips_v2 %>% 
+  group_by(member_casual, day_of_week) %>% # group by member_casual and weekday
+  summarise(average_ride_length = mean(ride_length)) # no. of rides and average duration
+```
+
+### Let's see ridership by membership type and weekday
+
+```{r avg ride duration by membership and weekday}
+all_trips_v2 %>% 
+  group_by(member_casual, day_of_week) %>% # group by member_casual and weekday
+  summarise(number_of_rides = n()) %>% 
+  mutate("proportion_membership (%)" = round((number_of_rides/sum(number_of_rides)*100)))
+```
+
+### Let's plot the number of rides per day for each membership
+
+```{r}
+all_trips_v2 %>% 
+  group_by(member_casual, day_of_week) %>% # group by member_casual and weekday
+  summarise(number_of_rides = n()) %>% # no. of rides and average duration
+  ggplot(aes(x = day_of_week ,y = number_of_rides, fill=member_casual)) +
+  geom_col(position="dodge")
+```
+
+### Let's create a visualization for average ride_length by weekday and membership
+
+```{r}
+all_trips_v2 %>% 
+  group_by(member_casual, day_of_week) %>% # group by member_casual and weekday
+  summarise(number_of_rides = n(), 
+            avg_ride_length = mean(ride_length)) %>% # no. of rides and average duration
+  ggplot(aes(x=day_of_week,y = avg_ride_length, fill=member_casual)) + geom_col(position="dodge")
+```
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+# STEP 4: EXPORT SUMMARY FILE FOR FURTHER ANALYSIS
+
+### \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+
+### Create a csv file that we will visualize in Excel, Tableau or my presentation software
+
+### Exporting of file for further analysis
+
+```{r data to be exported}
+all_trips_v2 <- all_trips_v2 %>% 
+  group_by(member_casual, day_of_week) %>% # group by member_casual and weekday
+  summarise(average_ride_length = mean(ride_length), total_rides = n())
+
+type(all_trips_v2) # check type of object (its a list)
+```
+
+### Let's convert the list to data frame for easy exporting to a csv file:
+
+```{r converting list to data frame}
+
+# Lets convert to a data frame and export the data to csv file
+trips_final <- data.frame(all_trips_v2)
+write_csv(trips_final, file = 'C:\\Users\\hp\\Desktop\\Google Capstone\\Divvy_Exercise\\avg_ride_length.csv')
+```
+
+### Let's check how the csv will look like:
+
+```{r}
+f <- read.csv("avg_ride_length.csv", sep = ";")
+View(f)
+```
+
+# KEY FINDINGS
+
+1.  Riders with memberships are more than 50% of the total riders.
+2.  Casual riders tend to hire more of bikes from Friday right through the weekend.
+3.  This suggests that casual riders use bikes for leisure, tourism or exercising.
+4.  Members continue to use bikes to go to work observed in constant ride length throughout the week (fig. 1).
+
+# RECOMMENDATIONS
+
+1.  Introducing weekend membership at a discount
+
+2.  Introduce discounts for longer riders only if they are members
+
+3.  Charging casual riders per ride length and discounts for longer riders i.e. Ride More Pay Less!
